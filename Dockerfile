@@ -3,7 +3,7 @@
 FROM debian
 
 # Update packages and install the two we need for now
-RUN apt-get -y update && apt-get -y install wget unzip
+RUN apt-get -y update && apt-get -y install wget unzip gettext
 
 # Get the latest version of DuckDB
 RUN wget https://github.com/duckdb/duckdb/releases/download/v0.9.2/duckdb_cli-linux-amd64.zip \
@@ -14,3 +14,6 @@ RUN wget https://github.com/duckdb/duckdb/releases/download/v0.9.2/duckdb_cli-li
 # Make sure our shell is Bash
 SHELL ["/bin/bash", "-ec"]
 
+RUN mkdir -p /app/queries/raw
+
+COPY queries/raw /app/queries/raw

@@ -1,0 +1,77 @@
+apiVersion: argoproj.io/v1alpha1
+kind: CronWorkflow
+metadata:
+  name: nyc
+  namespace: argo
+  labels:
+    workflows.argoproj.io/archive-strategy: "false"
+  annotations:
+    workflows.argoproj.io/description: NYC data pipeline
+spec:
+  schedule: "0 6 * * *"
+  concurrencyPolicy: "Replace"
+  startingDeadlineSeconds: 0
+  workflowSpec:
+    entrypoint: nyc
+    arguments:
+      parameters:
+        - name: date
+          value: |
+            [
+              {"month": "09", "year": "2023"},
+              {"month": "10", "year": "2023"},
+              {"month": "11", "year": "2023"},
+              {"month": "12", "year": "2023"}
+            ]
+    podGC:
+      strategy: OnPodSuccess
+    serviceAccountName: argo
+
+    templates:
+      - name: nyc
+        parallelism: 3
+        inputs:
+          parameters:
+            - name: date
+        dag:
+          tasks:
+            - name: data
+              template: get-data
+              arguments:
+                parameters:
+                  - name: month
+                    value: "{{item.month}}"
+                  - name: year
+                    value: "{{item.year}}"
+              withParam: "{{inputs.parameters.date}}"
+      - name: get-data
+        inputs:
+          parameters:
+            - name: year
+            - name: month
+        container:
+          image: elimayost/nyc-duckdb:0.2
+          imagePullPolicy: Always
+          command: ["bash", "-c"]
+          args: ["envsubst < /app/queries/raw/get_raw_data.sql | duckdb"]
+          env:
+            - name: month
+              value: "{{inputs.parameters.month}}"
+            - name: year
+              value: "{{inputs.parameters.year}}"
+            - name: s3_endpoint
+              valueFrom:
+                secretKeyRef:
+                  name: nyc
+                  key: s3_endpoint
+            - name: s3_access_key_id
+              valueFrom:
+                secretKeyRef:
+                  name: nyc
+                  key: s3_access_key_id
+            - name: s3_secret_access_key
+              valueFrom:
+                secretKeyRef:
+                  name: nyc
+                  key: s3_secret_access_key
+
